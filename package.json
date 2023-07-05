@@ -1,0 +1,14 @@
+{
+  "name": "concord-export-signers",
+  "version": "1.0.0",
+  "description": "Script using Concord API to export data about signers.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Concord Worldwide Inc.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "csv": "^6.3.1"
+  }
+}
