@@ -22,10 +22,14 @@ Having Node.JS and NPM installed.
 
 Initialize the project and load the node modules.
 
-`npm init`
+`npm install`
 
 Insert your API key in the `index.js` file, line 5. The API key is user-based and can be created from Concord application. Pick a user who has access to all documents.
 
 Execute the script
 
 `node index.js`
+
+## To go further
+
+Concord API documentation: https://api.doc.concordnow.com/.
