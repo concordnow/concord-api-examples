@@ -12,7 +12,7 @@ This project creates a CSV file with the following columns:
 Each line is a document at the signing stage.
 
 The CSV file is created in the same folder of the script and the name is:
-- export-signing-documents-<date>.csv
+- export-signing-documents-20YY-MM-DDTHH_MM_SS_MSZ.csv
 
 ## Prerequisite
 

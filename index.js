@@ -130,9 +130,15 @@ async function getOrganizationIds() {
   return body.organizations.map(o => o.id);
 }
 
+function getCSVFilename() {
+  // Replace colons and dots in the name for Windows support.
+  const today = d().replaceAll(/[:.]/ig, '_');
+  return `export-signing-documents-${today}.csv`;
+}
+
 async function doIt() {
   console.log(`${d()} Export starts`);
-  const filename = `export-signing-documents-${new Date().toISOString()}.csv`;
+  const filename = getCSVFilename();
   const writableStream = fs.createWriteStream(filename);
   const columns = [
     'Organization ID',
