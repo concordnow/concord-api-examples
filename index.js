@@ -73,8 +73,8 @@ async function getSignatureAgreement(organizationId, agreementId) {
   return body.slots;
 }
 
-async function getAgreementData(organizationId, agreementId, doc) {
-  const slots = await getSignatureAgreement(organizationId, agreementId);
+async function getAgreementData(organization, agreementId, doc) {
+  const slots = await getSignatureAgreement(organization.id, agreementId);
   const needToSign = slots
     .filter(s => !s.signature)
     .map(s => s.reservation)
@@ -96,9 +96,10 @@ async function getAgreementData(organizationId, agreementId, doc) {
     .map(s => s.signature.info.email);
 
   return [
-    organizationId,
+    organization.id,
+    organization.name,
     agreementId,
-    `https://secure.concordnow.com/#/organizations/${organizationId}/agreements/${agreementId}`,
+    `https://secure.concordnow.com/#/organizations/${organization.id}/agreements/${agreementId}`,
     doc.title,
     doc.signatureRequired - doc.signatureCount,
     needToSign.join(','),
@@ -106,16 +107,16 @@ async function getAgreementData(organizationId, agreementId, doc) {
   ];
 }
 
-async function getFullData(organizationId) {
-  const documents = await getSigningAgreements(organizationId);
+async function getFullData(organization) {
+  const documents = await getSigningAgreements(organization.id);
   const data = [];
 
   for (const doc of documents) {
     try {
-      data.push(await getAgreementData(organizationId, doc.uuid, doc));
+      data.push(await getAgreementData(organization, doc.uuid, doc));
     } catch (e) {
       console.log(`Error with agreementId: ${doc.uuid}`, e);
-      retryDocs.push([organizationId, doc.uuid, doc]);
+      retryDocs.push([organization, doc.uuid, doc]);
     }
     if (data.length % 1000 === 0) {
       console.log(`${d()} Get signing data in progress: ${data.length} / ${documents.length}`);
@@ -124,10 +125,10 @@ async function getFullData(organizationId) {
   return data;
 }
 
-async function getOrganizationIds() {
+async function getOrganizations() {
   const body = await get('/api/rest/1/user/me/organizations');
 
-  return body.organizations.map(o => o.id);
+  return body.organizations;
 }
 
 function getCSVFilename() {
@@ -142,6 +143,7 @@ async function doIt() {
   const writableStream = fs.createWriteStream(filename);
   const columns = [
     'Organization ID',
+    'Organization Name',
     'Document ID',
     'Document URL',
     'Title',
@@ -150,10 +152,10 @@ async function doIt() {
     'People who signed'
     ];
   const stringifier = stringify({ header: true, columns: columns });
-  const organizationIds = await getOrganizationIds();
+  const organizations = await getOrganizations();
 
-  for (const organizationId of organizationIds) {
-    const data = await getFullData(organizationId);
+  for (const organization of organizations) {
+    const data = await getFullData(organization);
     for (const d of data) {
       stringifier.write(d);
     }
