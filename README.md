@@ -2,8 +2,10 @@
 
 This project creates a CSV file with the following columns:
 - Organization ID
+- Organization Name
 - Document ID
 - Document URL
+- Created At
 - Title
 - Number of needed signatures
 - People who need to sign
