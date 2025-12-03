@@ -1,0 +1,11 @@
+{
+  "name": "simple-draft-approval",
+  "version": "1.0.0",
+  "description": "Simple script to create a draft with custom approval configuration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC"
+}

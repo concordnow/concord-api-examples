@@ -1,0 +1,12 @@
+# Configuration file with sensitive data
+config.json
+
+# Dependencies
+node_modules/
+
+# Log files
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
