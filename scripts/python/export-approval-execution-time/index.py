@@ -3,11 +3,13 @@
 Export Signed Agreements with Approval and Execution Times
 
 This script exports all signed agreements from Concord API with complete timeline data:
-- Agreement creation date (from first activity in audit trail)
-- First and last approval dates
-- First and last signature dates
+- Agreement creation date and creator email (from first activity in audit trail)
+- Detailed approval tracking: up to 5 approvers with email addresses and dates
+- Detailed signature tracking: up to 5 signers with email addresses and dates
+- First and last approval/signature dates (for backward compatibility)
+- Total counts of approvals and signatures
 
-Output: Timestamped CSV file with agreement timeline data
+Output: Timestamped CSV file with 31 columns of agreement timeline data
 """
 
 # Configuration: Set your Concord API key here
@@ -541,7 +543,7 @@ def write_csv(filename, agreement_timelines):
     """
     Write agreement timeline data to CSV file.
 
-    CSV columns (32 total):
+    CSV columns (31 total):
     - Agreement ID, Title, Link, Creation Date, Created By
     - Approver 1-5, Approval Date 1-5 (10 columns)
     - Signer 1-5, Signature Date 1-5 (10 columns)
@@ -553,7 +555,7 @@ def write_csv(filename, agreement_timelines):
         filename: Output CSV filename
         agreement_timelines: List of timeline dictionaries
     """
-    # Define CSV headers (32 columns total - must match spec exactly)
+    # Define CSV headers (31 columns total - must match spec exactly)
     headers = [
         # Columns 1-5: Basics
         "Agreement ID",

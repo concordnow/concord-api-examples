@@ -128,7 +128,7 @@ You can now open the CSV file in Excel, Google Sheets, or any spreadsheet applic
 
 ## CSV Output Format
 
-### Columns (32 total)
+### Columns (31 total)
 
 | Column # | Column Name | Description | Example Value | Empty If... |
 |----------|-------------|-------------|---------------|-------------|
