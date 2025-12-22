@@ -241,6 +241,31 @@ def extract_creation_date(activities_response):
     return unix_ms_to_utc_string(earliest_timestamp)
 
 
+def extract_created_by(activities_response):
+    """
+    Extract the email of the user who created the agreement from the earliest activity.
+
+    Args:
+        activities_response: Response dict with "activities" key
+
+    Returns:
+        User email address, or empty string if cannot determine
+    """
+    activities = activities_response.get("activities", [])
+
+    if not activities:
+        return ""
+
+    # Find earliest activity
+    earliest_activity = min(activities, key=lambda a: a.get("createdAt", float('inf')))
+
+    # Extract user email from creator.actor structure
+    creator = earliest_activity.get("creator", {})
+    actor = creator.get("actor", {})
+
+    return actor.get("email", "")
+
+
 def extract_approval_dates(activities_response):
     """
     Extract first and last approval dates from audit trail.
@@ -277,6 +302,52 @@ def extract_approval_dates(activities_response):
     last_utc = unix_ms_to_utc_string(timestamps[-1])
 
     return (first_utc, last_utc)
+
+
+def extract_detailed_approvals(activities_response, max_approvers=5):
+    """
+    Extract up to max_approvers approval details (email + date) from audit trail.
+
+    Filters for VALIDATION_ACCEPT activity type (workflow approvals).
+
+    Args:
+        activities_response: Response dict with "activities" key
+        max_approvers: Maximum number of approvers to return (default: 5)
+
+    Returns:
+        Tuple of (approvals_list, total_count)
+        - approvals_list: List of dicts with 'email' and 'date' (up to max_approvers)
+        - total_count: Total number of approvals (including those beyond max_approvers)
+    """
+    activities = activities_response.get("activities", [])
+
+    # Filter for approval activities (VALIDATION_ACCEPT)
+    approval_activities = [
+        activity for activity in activities
+        if activity.get("name") == "VALIDATION_ACCEPT"
+    ]
+
+    if not approval_activities:
+        return ([], 0)
+
+    # Sort by timestamp (earliest first)
+    approval_activities.sort(key=lambda a: a.get("createdAt", 0))
+
+    # Extract approver details
+    approvals = []
+    for activity in approval_activities[:max_approvers]:
+        # Extract email from creator.actor structure
+        creator = activity.get("creator", {})
+        actor = creator.get("actor", {})
+        approver_email = actor.get("email", "")
+        approval_date = unix_ms_to_utc_string(activity.get("createdAt"))
+
+        approvals.append({
+            "email": approver_email,
+            "date": approval_date
+        })
+
+    return (approvals, len(approval_activities))
 
 
 def extract_signature_dates(activities_response):
@@ -318,6 +389,52 @@ def extract_signature_dates(activities_response):
     return (first_utc, last_utc)
 
 
+def extract_detailed_signatures(activities_response, max_signers=5):
+    """
+    Extract up to max_signers signature details (email + date) from audit trail.
+
+    Filters for NEGOTIATION_APPROVE and AGREEMENT_SIGNATURE_FINALIZE activity types.
+
+    Args:
+        activities_response: Response dict with "activities" key
+        max_signers: Maximum number of signers to return (default: 5)
+
+    Returns:
+        Tuple of (signatures_list, total_count)
+        - signatures_list: List of dicts with 'email' and 'date' (up to max_signers)
+        - total_count: Total number of signatures (including those beyond max_signers)
+    """
+    activities = activities_response.get("activities", [])
+
+    # Filter for signature activities
+    signature_activities = [
+        activity for activity in activities
+        if activity.get("name") in ["NEGOTIATION_APPROVE", "AGREEMENT_SIGNATURE_FINALIZE"]
+    ]
+
+    if not signature_activities:
+        return ([], 0)
+
+    # Sort by timestamp (earliest first)
+    signature_activities.sort(key=lambda a: a.get("createdAt", 0))
+
+    # Extract signer details
+    signatures = []
+    for activity in signature_activities[:max_signers]:
+        # Extract email from creator.actor structure
+        creator = activity.get("creator", {})
+        actor = creator.get("actor", {})
+        signer_email = actor.get("email", "")
+        signature_date = unix_ms_to_utc_string(activity.get("createdAt"))
+
+        signatures.append({
+            "email": signer_email,
+            "date": signature_date
+        })
+
+    return (signatures, len(signature_activities))
+
+
 def construct_agreement_url(org_id, agreement_uuid):
     """
     Build web URL for viewing agreement in Concord interface.
@@ -346,8 +463,12 @@ def process_agreement(org_id, agreement):
     Returns:
         Dictionary with all timeline fields for CSV export:
         - agreementId, agreementTitle, agreementLink
-        - creationDate, firstApprovalDate, lastApprovalDate
-        - firstSignatureDate, lastSignatureDate
+        - creationDate, createdBy
+        - approver1-5, approvalDate1-5
+        - signer1-5, signatureDate1-5
+        - firstApprovalDate, lastApprovalDate (backward compatibility)
+        - firstSignatureDate, lastSignatureDate (backward compatibility)
+        - totalApprovals, totalSignatures
     """
     agreement_uuid = agreement.get("uuid")
     agreement_title = agreement.get("title", "")
@@ -357,53 +478,119 @@ def process_agreement(org_id, agreement):
 
     # Extract all timeline data
     creation_date = extract_creation_date(activities_response)
+    created_by = extract_created_by(activities_response)
+
+    # Extract detailed approvals and signatures
+    detailed_approvals, total_approvals = extract_detailed_approvals(activities_response)
+    detailed_signatures, total_signatures = extract_detailed_signatures(activities_response)
+
+    # Extract first/last dates for backward compatibility
     first_approval, last_approval = extract_approval_dates(activities_response)
     first_signature, last_signature = extract_signature_dates(activities_response)
+
+    # Print warnings if more than 5 approvals or signatures
+    if total_approvals > 5:
+        print(f"  WARNING: Agreement '{agreement_title[:50]}' has {total_approvals} approvals (showing first 5)")
+    if total_signatures > 5:
+        print(f"  WARNING: Agreement '{agreement_title[:50]}' has {total_signatures} signatures (showing first 5)")
 
     # Construct web URL
     agreement_link = construct_agreement_url(org_id, agreement_uuid)
 
-    # Build complete timeline dictionary
-    return {
+    # Build complete timeline dictionary with all new fields
+    result = {
         "agreementId": agreement_uuid,
         "agreementTitle": agreement_title,
         "agreementLink": agreement_link,
         "creationDate": creation_date,
-        "firstApprovalDate": first_approval,
-        "lastApprovalDate": last_approval,
-        "firstSignatureDate": first_signature,
-        "lastSignatureDate": last_signature
+        "createdBy": created_by,
     }
+
+    # Add approver details (up to 5)
+    for i in range(5):
+        if i < len(detailed_approvals):
+            result[f"approver{i+1}"] = detailed_approvals[i]["email"]
+            result[f"approvalDate{i+1}"] = detailed_approvals[i]["date"]
+        else:
+            result[f"approver{i+1}"] = ""
+            result[f"approvalDate{i+1}"] = ""
+
+    # Add signer details (up to 5)
+    for i in range(5):
+        if i < len(detailed_signatures):
+            result[f"signer{i+1}"] = detailed_signatures[i]["email"]
+            result[f"signatureDate{i+1}"] = detailed_signatures[i]["date"]
+        else:
+            result[f"signer{i+1}"] = ""
+            result[f"signatureDate{i+1}"] = ""
+
+    # Add backward compatible fields
+    result["firstApprovalDate"] = first_approval
+    result["lastApprovalDate"] = last_approval
+    result["firstSignatureDate"] = first_signature
+    result["lastSignatureDate"] = last_signature
+
+    # Add totals
+    result["totalApprovals"] = total_approvals
+    result["totalSignatures"] = total_signatures
+
+    return result
 
 
 def write_csv(filename, agreement_timelines):
     """
     Write agreement timeline data to CSV file.
 
-    CSV columns (8 total):
-    - Agreement ID
-    - Agreement Title
-    - Agreement Link
-    - Creation Date
-    - First Approval Date
-    - Last Approval Date
-    - First Signature Date
-    - Last Signature Date
+    CSV columns (32 total):
+    - Agreement ID, Title, Link, Creation Date, Created By
+    - Approver 1-5, Approval Date 1-5 (10 columns)
+    - Signer 1-5, Signature Date 1-5 (10 columns)
+    - First Approval Date, Last Approval Date (backward compatibility)
+    - First Signature Date, Last Signature Date (backward compatibility)
+    - Total Approvals, Total Signatures
 
     Args:
         filename: Output CSV filename
         agreement_timelines: List of timeline dictionaries
     """
-    # Define CSV headers (must match spec exactly)
+    # Define CSV headers (32 columns total - must match spec exactly)
     headers = [
+        # Columns 1-5: Basics
         "Agreement ID",
         "Agreement Title",
         "Agreement Link",
         "Creation Date",
+        "Created By",
+        # Columns 6-15: Detailed approvals (5 approvers)
+        "Approver 1",
+        "Approval Date 1",
+        "Approver 2",
+        "Approval Date 2",
+        "Approver 3",
+        "Approval Date 3",
+        "Approver 4",
+        "Approval Date 4",
+        "Approver 5",
+        "Approval Date 5",
+        # Columns 16-25: Detailed signatures (5 signers)
+        "Signer 1",
+        "Signature Date 1",
+        "Signer 2",
+        "Signature Date 2",
+        "Signer 3",
+        "Signature Date 3",
+        "Signer 4",
+        "Signature Date 4",
+        "Signer 5",
+        "Signature Date 5",
+        # Columns 26-29: Backward compatibility
         "First Approval Date",
         "Last Approval Date",
         "First Signature Date",
-        "Last Signature Date"
+        "Last Signature Date",
+        # Columns 30-31: Totals
+        "Total Approvals",
+        "Total Signatures"
     ]
 
     try:
@@ -416,14 +603,42 @@ def write_csv(filename, agreement_timelines):
             # Write data rows
             for timeline in agreement_timelines:
                 row = [
+                    # Columns 1-5: Basics
                     timeline.get("agreementId", ""),
                     timeline.get("agreementTitle", ""),
                     timeline.get("agreementLink", ""),
                     timeline.get("creationDate", ""),
+                    timeline.get("createdBy", ""),
+                    # Columns 6-15: Detailed approvals
+                    timeline.get("approver1", ""),
+                    timeline.get("approvalDate1", ""),
+                    timeline.get("approver2", ""),
+                    timeline.get("approvalDate2", ""),
+                    timeline.get("approver3", ""),
+                    timeline.get("approvalDate3", ""),
+                    timeline.get("approver4", ""),
+                    timeline.get("approvalDate4", ""),
+                    timeline.get("approver5", ""),
+                    timeline.get("approvalDate5", ""),
+                    # Columns 16-25: Detailed signatures
+                    timeline.get("signer1", ""),
+                    timeline.get("signatureDate1", ""),
+                    timeline.get("signer2", ""),
+                    timeline.get("signatureDate2", ""),
+                    timeline.get("signer3", ""),
+                    timeline.get("signatureDate3", ""),
+                    timeline.get("signer4", ""),
+                    timeline.get("signatureDate4", ""),
+                    timeline.get("signer5", ""),
+                    timeline.get("signatureDate5", ""),
+                    # Columns 26-29: Backward compatibility
                     timeline.get("firstApprovalDate", ""),
                     timeline.get("lastApprovalDate", ""),
                     timeline.get("firstSignatureDate", ""),
-                    timeline.get("lastSignatureDate", "")
+                    timeline.get("lastSignatureDate", ""),
+                    # Columns 30-31: Totals
+                    timeline.get("totalApprovals", ""),
+                    timeline.get("totalSignatures", "")
                 ]
                 writer.writerow(row)
 

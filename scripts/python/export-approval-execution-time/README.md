@@ -5,9 +5,11 @@ A Python script that exports all signed agreements from Concord API with complet
 ## Overview
 
 This script helps business analysts and contract administrators analyze agreement execution timelines by exporting:
-- Agreement creation date (from first activity in audit trail)
-- First and last approval dates
-- First and last signature dates
+- Agreement creation date and creator email (from first activity in audit trail)
+- Detailed approval information: up to 5 approvers with email addresses and dates
+- Detailed signature information: up to 5 signers with email addresses and dates
+- First and last approval/signature dates
+- Total counts of approvals and signatures
 
 The output is a timestamped CSV file ready for analysis in Excel, Google Sheets, or other spreadsheet applications.
 
@@ -126,28 +128,62 @@ You can now open the CSV file in Excel, Google Sheets, or any spreadsheet applic
 
 ## CSV Output Format
 
-### Columns
+### Columns (32 total)
 
-| Column | Description | Example Value | Empty If... |
-|--------|-------------|---------------|-------------|
-| Agreement ID | Unique identifier | `abc-123-def-456` | Never empty |
-| Agreement Title | Agreement name | `NDA with Acme Corp` | Never empty |
-| Agreement Link | Web URL to view | `https://secure.concordnow.com/#/organizations/{organizationId}/agreements/{agreementID}` | Never empty |
-| Creation Date | First activity timestamp from audit trail (UTC) | `2025-11-01 14:30:00` | Never empty |
-| First Approval Date | First approval timestamp (UTC) | `2025-11-02 09:15:00` | No approvals in workflow |
-| Last Approval Date | Last approval timestamp (UTC) | `2025-11-02 16:45:00` | No approvals in workflow |
-| First Signature Date | First signature timestamp (UTC) | `2025-11-03 10:00:00` | No signatures recorded |
-| Last Signature Date | Last signature timestamp (UTC) | `2025-11-03 14:30:00` | No signatures recorded |
+| Column # | Column Name | Description | Example Value | Empty If... |
+|----------|-------------|-------------|---------------|-------------|
+| 1 | Agreement ID | Unique identifier | `abc-123-def-456` | Never |
+| 2 | Agreement Title | Agreement name | `NDA with Acme Corp` | Never |
+| 3 | Agreement Link | Web URL to view | `https://secure.concordnow.com/#/...` | Never |
+| 4 | Creation Date | First activity timestamp (UTC) | `2025-11-01 14:30:00` | Never |
+| 5 | Created By | Email of user who created agreement | `john.doe@example.com` | Cannot determine |
+| 6 | Approver 1 | First approver email | `jane.smith@example.com` | No approvals |
+| 7 | Approval Date 1 | First approval timestamp (UTC) | `2025-11-02 09:15:00` | No approvals |
+| 8 | Approver 2 | Second approver email | `bob.johnson@example.com` | < 2 approvals |
+| 9 | Approval Date 2 | Second approval timestamp (UTC) | `2025-11-02 14:30:00` | < 2 approvals |
+| 10 | Approver 3 | Third approver email | `alice.brown@example.com` | < 3 approvals |
+| 11 | Approval Date 3 | Third approval timestamp (UTC) | `2025-11-02 16:45:00` | < 3 approvals |
+| 12 | Approver 4 | Fourth approver email | `charlie.davis@example.com` | < 4 approvals |
+| 13 | Approval Date 4 | Fourth approval timestamp (UTC) | `2025-11-03 08:00:00` | < 4 approvals |
+| 14 | Approver 5 | Fifth approver email | `diana.evans@example.com` | < 5 approvals |
+| 15 | Approval Date 5 | Fifth approval timestamp (UTC) | `2025-11-03 10:15:00` | < 5 approvals |
+| 16 | Signer 1 | First signer email | `carol.white@example.com` | No signatures |
+| 17 | Signature Date 1 | First signature timestamp (UTC) | `2025-11-04 09:00:00` | No signatures |
+| 18 | Signer 2 | Second signer email | `david.green@example.com` | < 2 signatures |
+| 19 | Signature Date 2 | Second signature timestamp (UTC) | `2025-11-04 14:30:00` | < 2 signatures |
+| 20 | Signer 3 | Third signer email | `emily.black@example.com` | < 3 signatures |
+| 21 | Signature Date 3 | Third signature timestamp (UTC) | `2025-11-04 16:45:00` | < 3 signatures |
+| 22 | Signer 4 | Fourth signer email | `frank.blue@example.com` | < 4 signatures |
+| 23 | Signature Date 4 | Fourth signature timestamp (UTC) | `2025-11-05 08:00:00` | < 4 signatures |
+| 24 | Signer 5 | Fifth signer email | `grace.red@example.com` | < 5 signatures |
+| 25 | Signature Date 5 | Fifth signature timestamp (UTC) | `2025-11-05 10:15:00` | < 5 signatures |
+| 26 | First Approval Date | First approval timestamp (UTC) | `2025-11-02 09:15:00` | No approvals |
+| 27 | Last Approval Date | Last approval timestamp (UTC) | `2025-11-03 10:15:00` | No approvals |
+| 28 | First Signature Date | First signature timestamp (UTC) | `2025-11-04 09:00:00` | No signatures |
+| 29 | Last Signature Date | Last signature timestamp (UTC) | `2025-11-05 10:15:00` | No signatures |
+| 30 | Total Approvals | Count of approval activities | `5` | `0` if no approvals |
+| 31 | Total Signatures | Count of signature activities | `5` | `0` if no signatures |
+
+### Column Groups
+- **Columns 1-5**: Basic agreement information
+- **Columns 6-15**: Detailed approval tracking (up to 5 approvers)
+- **Columns 16-25**: Detailed signature tracking (up to 5 signers)
+- **Columns 26-29**: First/last dates
+- **Columns 30-31**: Summary totals
 
 ### Example CSV Content
 
 ```csv
-Agreement ID,Agreement Title,Agreement Link,Creation Date,First Approval Date,Last Approval Date,First Signature Date,Last Signature Date
-abc-123-def-456,NDA with Acme Corp,https://secure.concordnow.com/#/organizations/org-123/agreements/abc-123-def-456,2025-11-01 14:30:00,2025-11-02 09:15:00,2025-11-02 16:45:00,2025-11-03 10:00:00,2025-11-03 14:30:00
-xyz-789-ghi-012,Service Agreement with Beta Inc,https://secure.concordnow.com/#/organizations/org-123/agreements/xyz-789-ghi-012,2025-10-15 10:00:00,,,2025-10-20 15:30:00,2025-10-21 11:00:00
+Agreement ID,Agreement Title,Agreement Link,Creation Date,Created By,Approver 1,Approval Date 1,Approver 2,Approval Date 2,Approver 3,Approval Date 3,Approver 4,Approval Date 4,Approver 5,Approval Date 5,Signer 1,Signature Date 1,Signer 2,Signature Date 2,Signer 3,Signature Date 3,Signer 4,Signature Date 4,Signer 5,Signature Date 5,First Approval Date,Last Approval Date,First Signature Date,Last Signature Date,Total Approvals,Total Signatures
+abc-123,NDA with Acme,https://...,2025-11-01 14:30:00,john@example.com,jane@example.com,2025-11-02 09:15:00,bob@example.com,2025-11-02 16:45:00,,,,,,,carol@example.com,2025-11-03 10:00:00,david@example.com,2025-11-03 14:30:00,,,,,,,2025-11-02 09:15:00,2025-11-02 16:45:00,2025-11-03 10:00:00,2025-11-03 14:30:00,2,2
+xyz-789,Service Agreement,https://...,2025-10-15 10:00:00,alice@example.com,,,,,,,,,,,emily@example.com,2025-10-20 15:30:00,frank@example.com,2025-10-21 11:00:00,,,,,,,,,2025-10-20 15:30:00,2025-10-21 11:00:00,0,2
 ```
 
-**Note**: Agreements without approval steps show empty strings in the approval date columns. This is expected behavior for agreements that skip the approval phase.
+**Notes**:
+- Agreements without approvals show empty strings in approval columns (6-15, 26-27)
+- Agreements without signatures show empty strings in signature columns (16-25, 28-29)
+- If more than 5 approvals or signatures exist, only the first 5 are shown (see Total columns for actual count)
+- Console warnings will alert you when agreements have >5 approvals or >5 signatures
 
 ## Troubleshooting
 
@@ -252,6 +288,21 @@ ERROR: Network request failed: /api/rest/1/...
    - Revoke old keys after rotation
 
 ## Known Limitations
+
+### Maximum 5 Approvers and 5 Signers Per Agreement
+
+The script exports **up to 5 approvers and 5 signers** per agreement.
+
+**Rationale**: Balances comprehensive data with reasonable CSV width. Most agreements have fewer than 5 approvals/signatures.
+
+**Impact**:
+- If an agreement has more than 5 approvals or signatures, only the first 5 (chronologically) are exported to individual columns
+- The "Total Approvals" and "Total Signatures" columns show the actual count, allowing you to identify agreements that exceeded the limit
+- Console warnings alert you when this occurs during export
+
+**Workaround**: Filter exported data by "Total Approvals" or "Total Signatures" > 5 to identify agreements needing special attention.
+
+---
 
 ### Fail-Fast Behavior
 
