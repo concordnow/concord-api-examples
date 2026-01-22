@@ -85,7 +85,9 @@ The script creates an approval workflow with this structure:
       "validations": [
         {
           "type": "USER",
-          "id": <current_user_id>
+          "user": {
+            "id": <current_user_id>
+          }
         }
       ]
     }
