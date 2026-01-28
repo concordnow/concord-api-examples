@@ -3,7 +3,7 @@ const fs = require("fs");
 const { stringify } = require("csv-stringify");
 
 const apiKey = ''; // Insert your API key here
-const pageSize = 5000;
+const pageSize = 500;
 const retryDocs = [];
 
 function d() {
